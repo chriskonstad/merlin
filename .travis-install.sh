@@ -8,5 +8,7 @@ opam --version
 opam --git-version
 
 opam init
+echo AVAILABLE COMPILER VERSIONS
+opam switch
 opam switch $OCAML_VERSION
 opam install ${OPAM_DEPENDS}
