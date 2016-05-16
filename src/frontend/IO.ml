@@ -39,6 +39,9 @@ type io_maker =
   on_read:(Unix.file_descr -> unit) -> input:Unix.file_descr ->
   output:Unix.file_descr ->
   low_io
+type memory_maker =
+  input:string -> output:Unix.file_descr ->
+  low_io
 
 let default_context =
   {Protocol.Context.
@@ -67,6 +70,19 @@ let json_make ~on_read ~input ~output =
       read buf len
   in
   let lexbuf = Lexing.from_function read in
+  (*let lexbuf = Lexing.from_string "[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]" in*)
+  let input = Json.stream_from_lexbuf (Json.init_lexer ()) lexbuf in
+  let output = Unix.out_channel_of_descr output in
+  let output' = Json.to_channel output in
+  let output json =
+    output' json;
+    output_char output '\n';
+    flush output
+  in
+  input, output
+
+let json_memory_make ~input ~output =
+  let lexbuf = Lexing.from_string input in
   let input = Json.stream_from_lexbuf (Json.init_lexer ()) lexbuf in
   let output = Unix.out_channel_of_descr output in
   let output' = Json.to_channel output in
@@ -85,6 +101,10 @@ let register_protocol ~name ~desc inst =
 let make' = ref json_make
 let make ~on_read ~input ~output =
   json_log (!make' ~on_read ~input ~output)
+
+let memory_make' = ref json_memory_make
+let memory_make ~input ~output =
+  json_log (!memory_make' ~input ~output)
 
 let select_frontend name =
   try make' := snd (List.assoc name !makers)

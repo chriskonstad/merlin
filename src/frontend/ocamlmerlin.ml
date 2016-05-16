@@ -126,6 +126,35 @@ let main_loop () =
     done
   with Stream.Failure -> ()
 
+(* Syntax check a single file *)
+(* TODO Reduce duplicate code in main_loop *)
+(* TODO: Fix how the output is handled *)
+(* TODO: See if I can avoid using JSON, and go straight to the parsed stream *)
+let syntax_check file =
+  print_endline file;
+  let input, output as io =
+    IO.(lift (memory_make ~input:"[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]"
+                ~output:Unix.stdout)) in
+  try
+    while true do
+      let notifications = ref [] in
+      let answer =
+        Logger.with_editor notifications @@ fun () ->
+        try match Stream.next input with
+          | Protocol.Request (context, request) ->
+            Protocol.Return
+              (request, Command.dispatch context request)
+        with
+        | Stream.Failure as exn -> raise exn
+        | exn -> Protocol.Exception exn
+      in
+      let notifications = List.rev !notifications in
+      try output ~notifications answer
+       with exn -> output ~notifications (Protocol.Exception exn);
+    done
+  with Stream.Failure -> ()
+
+
 let () =
   (* Setup signals, unix is a disaster *)
   signal Sys.sigusr1 Sys.Signal_ignore;
@@ -141,6 +170,11 @@ let () =
   let monitor = Sturgeon_stub.start Command.monitor in
 
   (* Run! *)
-  main_loop ();
+  (* If given a file to syntax check, then check it.  Otherwise run *)
+  (* interactively. *)
+  match Main_args.syntax_check with
+  | None -> main_loop ();
+  | Some(f) -> syntax_check f;
+
   Sturgeon_stub.stop monitor;
   ()

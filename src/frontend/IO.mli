@@ -44,8 +44,17 @@ type io_maker =
   output:Unix.file_descr ->
   low_io
 
+(* Generate an in-memory maker, which is a maker that can operate without
+   a file *)
+type memory_maker =
+  input:string -> output:Unix.file_descr ->
+  low_io
+
 (* Initialize protocol codec from a input and an output channel *)
 val make : io_maker
+
+(* Initialize an in-memory protocol codec *)
+val memory_make : memory_maker
 
 (* Add types *)
 val lift : low_io -> io

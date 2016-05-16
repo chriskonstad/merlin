@@ -53,6 +53,13 @@ let protocol_spec =
   Arg.String (fun p -> chosen_protocol := Some p),
   " Select frontend protocol (or 'help' to list)"
 
+let syntax_check = ref None
+
+let syntax_check_spec =
+  "-syntax-check",
+  Arg.String (fun file -> syntax_check := Some file),
+  "<filename> Check the given file's syntax"
+
 let unexpected_argument s =
   failwith ("Unexpected argument: " ^ s)
 
@@ -94,6 +101,7 @@ let flags =
       ignore_sigint_spec;
       print_version_spec;
       print_version_num_spec;
+      syntax_check_spec;
       warn_help_spec;
       protocol_spec;
     ];
@@ -109,3 +117,4 @@ let () =
     "Usage: ocamlmerlin [options]\noptions are:"
 
 let chosen_protocol = !chosen_protocol
+let syntax_check = !syntax_check
