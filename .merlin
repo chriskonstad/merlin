@@ -26,5 +26,6 @@ B src/ocaml_aux
 B src/sturgeon
 B src/utils
 B +threads
+PKG batteries
 PKG findlib
 PKG yojson

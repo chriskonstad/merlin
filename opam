@@ -14,7 +14,8 @@ build: [
 ]
 depends: [
   "ocamlfind" {>= "1.5.2"}
-  "yojson"
+  "yojson",
+  "batteries"
 ]
 
 available: [ocaml-version >= "4.00.0"]

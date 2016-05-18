@@ -134,7 +134,7 @@ let syntax_check file =
   print_endline file;
   let input, output as io =
     IO.(lift (memory_make ~input:"[\"protocol\", \"version\", 3]\n[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]"
-                ~output:Unix.stdout)) in
+                ~output:Batteries.IO.stdout)) in
   try
     while true do
       let notifications = ref [] in
