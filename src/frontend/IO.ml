@@ -40,7 +40,7 @@ type io_maker =
   output:Unix.file_descr ->
   low_io
 type memory_maker =
-  input:string -> output:unit Batteries.IO.output ->
+  input:Batteries.IO.input -> output:unit Batteries.IO.output ->
   low_io
 
 let default_context =
@@ -70,7 +70,6 @@ let json_make ~on_read ~input ~output =
       read buf len
   in
   let lexbuf = Lexing.from_function read in
-  (*let lexbuf = Lexing.from_string "[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]" in*)
   let input = Json.stream_from_lexbuf (Json.init_lexer ()) lexbuf in
   let output = Unix.out_channel_of_descr output in
   let output' = Json.to_channel output in
@@ -82,13 +81,13 @@ let json_make ~on_read ~input ~output =
   input, output
 
 let json_memory_make ~input ~output =
-  let lexbuf = Lexing.from_string input in
+  let lexbuf = Lexing.from_string (Batteries.IO.read_all input) in
   let input = Json.stream_from_lexbuf (Json.init_lexer ()) lexbuf in
   let output_buf = output in
   let output json =
     let str = Std.Json.to_string json in
     Batteries.IO.nwrite output_buf str;
-    Batteries.IO.write output_buf '\n'
+    Batteries.IO.nwrite output_buf ", ";
   in
   input, output
 
