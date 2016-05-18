@@ -103,10 +103,17 @@ let rec on_read ~timeout fd =
     on_read ~timeout fd
   | exn -> Logger.log "main" "on_read" (Printexc.to_string exn)
 
-let main_loop () =
-  let input, output as io =
-    IO.(lift (make ~on_read:(on_read ~timeout:0.050)
-                ~input:Unix.stdin ~output:Unix.stdout)) in
+let main_loop syntax_check =
+  let input, output as io, close =
+    match syntax_check with
+    (* Run interactively *)
+    | None -> IO.(lift (make ~on_read:(on_read ~timeout:0.050)
+                          ~input:Unix.stdin ~output:Unix.stdout)), (fun () -> ())
+    (* Syntax check the file at the given file path *)
+    | Some(file) -> IO.(lift (memory_make
+                                ~input:"[\"protocol\", \"version\", 3]\n[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]"
+                                ~output:Batteries.IO.stdout)), (fun () -> ((* TODO: Flush the output here *)))
+    in
   try
     while true do
       let notifications = ref [] in
@@ -123,37 +130,9 @@ let main_loop () =
       let notifications = List.rev !notifications in
       try output ~notifications answer
        with exn -> output ~notifications (Protocol.Exception exn);
+      close ();
     done
   with Stream.Failure -> ()
-
-(* Syntax check a single file *)
-(* TODO Reduce duplicate code in main_loop *)
-(* TODO: Fix how the output is handled *)
-(* TODO: See if I can avoid using JSON, and go straight to the parsed stream *)
-let syntax_check file =
-  print_endline file;
-  let input, output as io =
-    IO.(lift (memory_make ~input:"[\"protocol\", \"version\", 3]\n[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]"
-                ~output:Batteries.IO.stdout)) in
-  try
-    while true do
-      let notifications = ref [] in
-      let answer =
-        Logger.with_editor notifications @@ fun () ->
-        try match Stream.next input with
-          | Protocol.Request (context, request) ->
-            Protocol.Return
-              (request, Command.dispatch context request)
-        with
-        | Stream.Failure as exn -> raise exn
-        | exn -> Protocol.Exception exn
-      in
-      let notifications = List.rev !notifications in
-      try output ~notifications answer
-       with exn -> output ~notifications (Protocol.Exception exn);
-    done
-  with Stream.Failure -> ()
-
 
 let () =
   (* Setup signals, unix is a disaster *)
@@ -172,9 +151,7 @@ let () =
   (* Run! *)
   (* If given a file to syntax check, then check it.  Otherwise run *)
   (* interactively. *)
-  match Main_args.syntax_check with
-  | None -> main_loop ();
-  | Some(f) -> syntax_check f;
+  main_loop Main_args.syntax_check;
 
   Sturgeon_stub.stop monitor;
   ()
