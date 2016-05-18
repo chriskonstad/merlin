@@ -46,15 +46,15 @@ type io_maker =
 
 (* Generate an in-memory maker, which is a maker that can operate without
    a file *)
-type memory_maker =
-  input:Batteries.IO.input -> output:unit Batteries.IO.output ->
+type 'a memory_maker =
+  input:Batteries.IO.input -> output:'a Batteries.IO.output ->
   low_io
 
 (* Initialize protocol codec from a input and an output channel *)
 val make : io_maker
 
 (* Initialize an in-memory protocol codec *)
-val memory_make : memory_maker
+val memory_make : string memory_maker
 
 (* Add types *)
 val lift : low_io -> io

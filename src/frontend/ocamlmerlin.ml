@@ -128,11 +128,11 @@ let main_loop () =
 
 (* Syntax check the file at the given file path *)
 let syntax_check file =
-  let out_buf = Batteries.IO.stdout in
+  let out_buf = Batteries.IO.output_string () in
   Batteries.IO.write out_buf '[';
-  let input, output as io, close = IO.(lift (memory_make
+  let input, output as io = IO.(lift (memory_make
                                                ~input:(Batteries.IO.input_string "[\"protocol\", \"version\", 3]\n[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]")
-                                               ~output:out_buf)), (fun () -> (()))
+                                               ~output:out_buf))
   in
   try
     while true do
@@ -151,7 +151,6 @@ let syntax_check file =
       let notifications = List.rev !notifications in
       try output ~notifications answer
        with exn -> output ~notifications (Protocol.Exception exn);
-      close ();
     done
   with Stream.Failure -> Batteries.IO.nwrite out_buf "{}]"; ()
   (* TODO Format the output of the out buffer *)

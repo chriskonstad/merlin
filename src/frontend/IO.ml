@@ -39,8 +39,8 @@ type io_maker =
   on_read:(Unix.file_descr -> unit) -> input:Unix.file_descr ->
   output:Unix.file_descr ->
   low_io
-type memory_maker =
-  input:Batteries.IO.input -> output:unit Batteries.IO.output ->
+type 'a memory_maker =
+  input:Batteries.IO.input -> output:'a Batteries.IO.output ->
   low_io
 
 let default_context =
