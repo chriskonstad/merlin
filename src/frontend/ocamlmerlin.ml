@@ -140,14 +140,18 @@ let syntax_check file =
   (* Setup a buffer to write to, and script the protocol *)
   let out_buf = Batteries.IO.output_string () in
   Batteries.IO.nwrite out_buf "[{}";
-  let commands = [ "[\"protocol\", \"version\", 3]";
-                   "[\"checkout\", \"auto\", \"" ^ (quote_quotes file) ^ "\"]";
-                   "[\"tell\", \"start\", \"end\", \"" ^ (quote_quotes f_contents) ^ "\"]";
-                   "[\"errors\"]";
-                 ] in
-  let command = Batteries.List.fold_left (fun cur next ->
+  let command = [
+    (* Specify a particular protocol version *)
+    "[\"protocol\", \"version\", 3]";
+    (* "Checkout" the file, loading any .merlins required *)
+    "[\"checkout\", \"auto\", \"" ^ (quote_quotes file) ^ "\"]";
+    (* Load the file contents *)
+    "[\"tell\", \"start\", \"end\", \"" ^ (quote_quotes f_contents) ^ "\"]";
+    (* Query for any errors *)
+    "[\"errors\"]";
+  ] |> Batteries.List.fold_left (fun cur next ->
       cur ^ next ^ "\n"
-    ) "" commands in
+    ) "" in
   let input, output as io = IO.(lift (memory_make
                                                ~input:(Batteries.IO.input_string command)
                                                ~output:out_buf))
