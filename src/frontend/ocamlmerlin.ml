@@ -158,7 +158,6 @@ let syntax_check file =
   in
   try
     while true do
-      Batteries.IO.flush Batteries.IO.stdout;
       let notifications = ref [] in
       let answer =
         Logger.with_editor notifications @@ fun () ->
