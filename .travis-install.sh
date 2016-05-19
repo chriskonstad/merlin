@@ -1,4 +1,4 @@
-OPAM_DEPENDS="yojson ocamlfind"
+OPAM_DEPENDS="batteries yojson ocamlfind"
 export OPAMYES=1 OPAMVERBOSE=1
 
 echo System OCaml version
