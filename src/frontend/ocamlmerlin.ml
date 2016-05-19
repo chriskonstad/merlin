@@ -132,16 +132,22 @@ let syntax_check file =
   let quote_quotes s =
     Str.global_replace (Str.regexp "\"") "\\\"" s
   in
+  (* Read the file *)
   let f_handle = Batteries.File.open_in file in
   let f_contents = Batteries.IO.read_all f_handle in
   Batteries.IO.close_in f_handle;
+
+  (* Setup a buffer to write to, and script the protocol *)
   let out_buf = Batteries.IO.output_string () in
   Batteries.IO.nwrite out_buf "[{}";
-  let cmd_protocol = "[\"protocol\", \"version\", 3]\n" in
-  let cmd_checkout = "[\"checkout\", \"auto\", \"" ^ (quote_quotes file) ^ "\"]\n" in
-  let cmd_contents = "[\"tell\", \"start\", \"end\", \"" ^ (quote_quotes f_contents) ^ "\"]\n" in
-  let cmd_errors = "[\"errors\"]\n" in
-  let command = cmd_protocol ^ cmd_checkout ^ cmd_contents ^ cmd_errors in
+  let commands = [ "[\"protocol\", \"version\", 3]";
+                   "[\"checkout\", \"auto\", \"" ^ (quote_quotes file) ^ "\"]";
+                   "[\"tell\", \"start\", \"end\", \"" ^ (quote_quotes f_contents) ^ "\"]";
+                   "[\"errors\"]";
+                 ] in
+  let command = Batteries.List.fold_left (fun cur next ->
+      cur ^ next ^ "\n"
+    ) "" commands in
   let input, output as io = IO.(lift (memory_make
                                                ~input:(Batteries.IO.input_string command)
                                                ~output:out_buf))
@@ -165,6 +171,8 @@ let syntax_check file =
        with exn -> output ~notifications (Protocol.Exception exn);
     done
   with Stream.Failure ->
+    (* Take the original output buffer, read the contents and format the last *)
+    (* printed JSON object, because that's the errors. Format the output. *)
     Batteries.IO.write out_buf ']';
     let formatted_output = Batteries.IO.output_string () in
     let output_string = Batteries.IO.close_out out_buf in
