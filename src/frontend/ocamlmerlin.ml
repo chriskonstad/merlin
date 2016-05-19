@@ -193,10 +193,13 @@ let syntax_check file =
               let clean_msg = String.sub msg 1 (len - 2) |> (* Remove quotes *)
                               Str.global_replace (Str.regexp "\\\\n") "." |>
                               Str.global_replace (Str.regexp "[ \t]+") " " in
+              let add_field_sep () =
+                Batteries.IO.write formatted_output ':'; ()
+              in
               Batteries.IO.nwrite formatted_output file;
-              Batteries.IO.write formatted_output ':';
+              add_field_sep ();
               Batteries.IO.nwrite formatted_output line;
-              Batteries.IO.write formatted_output ':';
+              add_field_sep ();
               Batteries.IO.nwrite formatted_output clean_msg;
               Batteries.IO.write formatted_output '\n';
             ) errors;
