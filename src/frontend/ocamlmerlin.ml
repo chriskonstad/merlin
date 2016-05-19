@@ -129,10 +129,21 @@ let main_loop () =
 (* Syntax check the file at the given file path *)
 exception Unexpected_output
 let syntax_check file =
+  let quote_quotes s =
+    Str.global_replace (Str.regexp "\"") "\\\"" s
+  in
+  let f_handle = Batteries.File.open_in file in
+  let f_contents = Batteries.IO.read_all f_handle in
+  Batteries.IO.close_in f_handle;
   let out_buf = Batteries.IO.output_string () in
   Batteries.IO.nwrite out_buf "[{}";
+  let cmd_protocol = "[\"protocol\", \"version\", 3]\n" in
+  let cmd_checkout = "[\"checkout\", \"auto\", \"" ^ (quote_quotes file) ^ "\"]\n" in
+  let cmd_contents = "[\"tell\", \"start\", \"end\", \"" ^ (quote_quotes f_contents) ^ "\"]\n" in
+  let cmd_errors = "[\"errors\"]\n" in
+  let command = cmd_protocol ^ cmd_checkout ^ cmd_contents ^ cmd_errors in
   let input, output as io = IO.(lift (memory_make
-                                               ~input:(Batteries.IO.input_string "[\"protocol\", \"version\", 3]\n[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]")
+                                               ~input:(Batteries.IO.input_string command)
                                                ~output:out_buf))
   in
   try
@@ -178,13 +189,9 @@ let syntax_check file =
               Batteries.IO.nwrite formatted_output clean_msg;
               Batteries.IO.write formatted_output '\n';
             ) errors;
-          (*Batteries.IO.nwrite formatted_output (Json.pretty_to_string obj);*)
-          (*Batteries.IO.write formatted_output '\n';*)
           Batteries.IO.nwrite Batteries.IO.stdout (Batteries.IO.close_out formatted_output)
       )
     | _ -> raise Unexpected_output
-
-  (* TODO Format the output of the out buffer *)
 
 let () =
   (* Setup signals, unix is a disaster *)
