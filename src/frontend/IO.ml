@@ -86,8 +86,8 @@ let json_memory_make ~input ~output =
   let output_buf = output in
   let output json =
     let str = Std.Json.to_string json in
-    Batteries.IO.nwrite output_buf str;
     Batteries.IO.nwrite output_buf ", ";
+    Batteries.IO.nwrite output_buf str;
   in
   input, output
 

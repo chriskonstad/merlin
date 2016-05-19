@@ -127,9 +127,10 @@ let main_loop () =
   with Stream.Failure -> ()
 
 (* Syntax check the file at the given file path *)
+exception Unexpected_output
 let syntax_check file =
   let out_buf = Batteries.IO.output_string () in
-  Batteries.IO.write out_buf '[';
+  Batteries.IO.nwrite out_buf "[{}";
   let input, output as io = IO.(lift (memory_make
                                                ~input:(Batteries.IO.input_string "[\"protocol\", \"version\", 3]\n[\"tell\", \"start\", \"end\", \"let foo (a:string) = a\nfoo 1\"]\n[\"errors\"]")
                                                ~output:out_buf))
@@ -152,7 +153,37 @@ let syntax_check file =
       try output ~notifications answer
        with exn -> output ~notifications (Protocol.Exception exn);
     done
-  with Stream.Failure -> Batteries.IO.nwrite out_buf "{}]"; ()
+  with Stream.Failure ->
+    Batteries.IO.write out_buf ']';
+    let formatted_output = Batteries.IO.output_string () in
+    let output_string = Batteries.IO.close_out out_buf in
+    let js_array = Json.from_string output_string in
+    match js_array with
+    | `List l -> (match List.last l with
+        | None -> raise Unexpected_output
+        | Some(obj) ->
+          let errors = (Json.Util.member "value" obj) |> Json.Util.to_list in
+          List.iter ~f:(fun e ->
+              let member = Json.Util.member in
+              let line = member "start" e |> member "line" |> Json.to_string in
+              let msg = member "message" e |> Json.to_string in
+              let len = String.length msg in
+              let clean_msg = String.sub msg 1 (len - 2) |> (* Remove quotes *)
+                              Str.global_replace (Str.regexp "\\\\n") "." |>
+                              Str.global_replace (Str.regexp "[ \t]+") " " in
+              Batteries.IO.nwrite formatted_output file;
+              Batteries.IO.write formatted_output ':';
+              Batteries.IO.nwrite formatted_output line;
+              Batteries.IO.write formatted_output ':';
+              Batteries.IO.nwrite formatted_output clean_msg;
+              Batteries.IO.write formatted_output '\n';
+            ) errors;
+          (*Batteries.IO.nwrite formatted_output (Json.pretty_to_string obj);*)
+          (*Batteries.IO.write formatted_output '\n';*)
+          Batteries.IO.nwrite Batteries.IO.stdout (Batteries.IO.close_out formatted_output)
+      )
+    | _ -> raise Unexpected_output
+
   (* TODO Format the output of the out buffer *)
 
 let () =
