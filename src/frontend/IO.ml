@@ -81,7 +81,18 @@ let json_make ~on_read ~input ~output =
   input, output
 
 let json_memory_make ~input ~output =
-  let lexbuf = Lexing.from_string (Batteries.IO.read_all input) in
+  let rec read buf len =
+    let num = ref 0 in
+    for i = 0 to len do
+      try
+        let c = Batteries.IO.read input in
+        Bytes.set buf i c;
+        num := !num + 1;
+      with Batteries.IO.No_more_input -> ()
+    done;
+    !num
+  in
+  let lexbuf = Lexing.from_function read in
   let input = Json.stream_from_lexbuf (Json.init_lexer ()) lexbuf in
   let output_buf = output in
   let output json =
