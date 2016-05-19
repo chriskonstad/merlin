@@ -184,24 +184,25 @@ let syntax_check file =
     | `List l -> (match List.last l with
         | None -> raise Unexpected_output
         | Some(obj) ->
-          let errors = (Json.Util.member "value" obj) |> Json.Util.to_list in
+          let member = Json.Util.member in
+          let errors = (member "value" obj) |> Json.Util.to_list in
           List.iter ~f:(fun e ->
-              let member = Json.Util.member in
               let line = member "start" e |> member "line" |> Json.to_string in
               let msg = member "message" e |> Json.to_string in
               let len = String.length msg in
               let clean_msg = String.sub msg 1 (len - 2) |> (* Remove quotes *)
                               Str.global_replace (Str.regexp "\\\\n") "." |>
                               Str.global_replace (Str.regexp "[ \t]+") " " in
-              let add_field_sep () =
-                Batteries.IO.write formatted_output ':'; ()
+              let output str =
+                Batteries.IO.nwrite formatted_output str; ()
               in
-              Batteries.IO.nwrite formatted_output file;
-              add_field_sep ();
-              Batteries.IO.nwrite formatted_output line;
-              add_field_sep ();
-              Batteries.IO.nwrite formatted_output clean_msg;
-              Batteries.IO.write formatted_output '\n';
+              let field_sep = ":" in
+              output file;
+              output field_sep;
+              output line;
+              output field_sep;
+              output clean_msg;
+              output "\n";
             ) errors;
           Batteries.IO.nwrite Batteries.IO.stdout (Batteries.IO.close_out formatted_output)
       )
