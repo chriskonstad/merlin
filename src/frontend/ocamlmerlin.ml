@@ -152,9 +152,11 @@ let syntax_check file =
   ] |> Batteries.List.fold_left (fun cur next ->
       cur ^ next ^ "\n"
     ) "" in
-  let input, output as io = IO.(lift (memory_make
-                                               ~input:(Batteries.IO.input_string command)
-                                               ~output:out_buf))
+  let input, output as io = IO.(lift (unit_make
+                                               (*~input:(Batteries.IO.input_string command)*)
+                                               (*~output:out_buf))*)
+                                               ~input:Batteries.IO.stdin
+                                               ~output:Batteries.IO.stdout))
   in
   try
     while true do

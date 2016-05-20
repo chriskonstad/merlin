@@ -82,14 +82,24 @@ let json_make ~on_read ~input ~output =
 
 let json_memory_make ~input ~output =
   let rec read buf len =
+    (*print_endline ("READING " ^ (string_of_int len) ^ " chars");*)
     let num = ref 0 in
-    for i = 0 to len do
-      try
+    let i = ref 0 in
+    while !i < len do
+      (try
         let c = Batteries.IO.read input in
-        Bytes.set buf i c;
+        Bytes.set buf !i c;
         num := !num + 1;
-      with Batteries.IO.No_more_input -> ()
+        (*print_endline ("ON i =" ^ (string_of_int !i) ^ " in loop found " ^ (Char.escaped c));*)
+        i := !i + 1;
+        if '\n' = c then
+          i := len
+      with
+      | Batteries.IO.No_more_input -> print_endline "not enough input"; i := len; ()
+      | Batteries.IO.Input_closed -> print_endline "input closed"; i := len; ()
+      );
     done;
+    (*print_endline ("Got " ^ (string_of_int !num) ^ " chars");*)
     !num
   in
   let lexbuf = Lexing.from_function read in
@@ -97,6 +107,7 @@ let json_memory_make ~input ~output =
   let output_buf = output in
   let output json =
     let str = Std.Json.to_string json in
+    (*print_endline str;*)
     Batteries.IO.nwrite output_buf ", ";
     Batteries.IO.nwrite output_buf str;
   in
@@ -111,9 +122,13 @@ let make' = ref json_make
 let make ~on_read ~input ~output =
   json_log (!make' ~on_read ~input ~output)
 
-let memory_make' = ref json_memory_make
-let memory_make ~input ~output =
-  json_log (!memory_make' ~input ~output)
+let buffered_make' = ref json_memory_make
+let buffered_make ~input ~output =
+  json_log (!buffered_make' ~input ~output)
+
+let unit_make' = ref json_memory_make
+let unit_make ~input ~output =
+  json_log (!unit_make' ~input ~output)
 
 let select_frontend name =
   try make' := snd (List.assoc name !makers)

@@ -54,7 +54,8 @@ type 'a memory_maker =
 val make : io_maker
 
 (* Initialize an in-memory protocol codec *)
-val memory_make : string memory_maker
+val buffered_make : string memory_maker
+val unit_make : unit memory_maker
 
 (* Add types *)
 val lift : low_io -> io
