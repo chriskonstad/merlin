@@ -90,68 +90,45 @@ let signal sg behavior =
   try ignore (Sys.signal sg behavior)
   with Invalid_argument _ (*Sys.signal: unavailable signal*) -> ()
 
-let rec on_read ~timeout fd =
-  try match Unix.select [fd] [] [] timeout with
-    | [], [], [] ->
-      if Command.dispatch IO.default_context Protocol.(Query Idle_job) then
-        on_read ~timeout:0.0 fd
-      else
-        on_read ~timeout:(-1.0) fd
-    | _, _, _ -> ()
-  with
-  | Unix.Unix_error (Unix.EINTR, _, _) ->
-    on_read ~timeout fd
-  | exn -> Logger.log "main" "on_read" (Printexc.to_string exn)
+(*let rec on_read ~timeout fd =*)
+(*  try match Unix.select [fd] [] [] timeout with*)
+(*    | [], [], [] ->*)
+(*      if Command.dispatch IO.default_context Protocol.(Query Idle_job) then*)
+(*        on_read ~timeout:0.0 fd*)
+(*      else*)
+(*        on_read ~timeout:(-1.0) fd*)
+(*    | _, _, _ -> ()*)
+(*  with*)
+(*  | Unix.Unix_error (Unix.EINTR, _, _) ->*)
+(*    on_read ~timeout fd*)
+(*  | exn -> Logger.log "main" "on_read" (Printexc.to_string exn)*)
 
-let main_loop () =
-  let input, output as io = IO.(lift (make ~on_read:(on_read ~timeout:0.050)
-                                        ~input:Unix.stdin ~output:Unix.stdout))
-    in
-  try
-    while true do
-      let notifications = ref [] in
-      let answer =
-        Logger.with_editor notifications @@ fun () ->
-        try match Stream.next input with
-          | Protocol.Request (context, request) ->
-            Protocol.Return
-              (request, Command.dispatch context request)
-        with
-        | Stream.Failure as exn -> raise exn
-        | exn -> Protocol.Exception exn
-      in
-      let notifications = List.rev !notifications in
-      try output ~notifications answer
-       with exn -> output ~notifications (Protocol.Exception exn);
-    done
-  with Stream.Failure -> ()
+(*let main_loop () =*)
+(*  let input, output as io = IO.(lift (make ~on_read:(on_read ~timeout:0.050)*)
+(*                                        ~input:Unix.stdin ~output:Unix.stdout))*)
+(*    in*)
+(*  try*)
+(*    while true do*)
+(*      let notifications = ref [] in*)
+(*      let answer =*)
+(*        Logger.with_editor notifications @@ fun () ->*)
+(*        try match Stream.next input with*)
+(*          | Protocol.Request (context, request) ->*)
+(*            Protocol.Return*)
+(*              (request, Command.dispatch context request)*)
+(*        with*)
+(*        | Stream.Failure as exn -> raise exn*)
+(*        | exn -> Protocol.Exception exn*)
+(*      in*)
+(*      let notifications = List.rev !notifications in*)
+(*      try output ~notifications answer*)
+(*       with exn -> output ~notifications (Protocol.Exception exn);*)
+(*    done*)
+(*  with Stream.Failure -> ()*)
 
 (* Syntax check the file at the given file path *)
 exception Unexpected_output
 let syntax_check file =
-  let quote_quotes s =
-    Str.global_replace (Str.regexp "\"") "\\\"" s
-  in
-  (* Read the file *)
-  let f_handle = Batteries.File.open_in file in
-  let f_contents = Batteries.IO.read_all f_handle in
-  Batteries.IO.close_in f_handle;
-
-  (* Setup a buffer to write to, and script the protocol *)
-  let out_buf = Batteries.IO.output_string () in
-  Batteries.IO.nwrite out_buf "[{}";
-  let command = [
-    (* Specify a particular protocol version *)
-    "[\"protocol\", \"version\", 3]";
-    (* "Checkout" the file, loading any .merlins required *)
-    "[\"checkout\", \"auto\", \"" ^ (quote_quotes file) ^ "\"]";
-    (* Load the file contents *)
-    "[\"tell\", \"start\", \"end\", \"" ^ (quote_quotes f_contents) ^ "\"]";
-    (* Query for any errors *)
-    "[\"errors\"]";
-  ] |> Batteries.List.fold_left (fun cur next ->
-      cur ^ next ^ "\n"
-    ) "" in
   (* TODO: What varies between buffered and stdin/stdout?
      * The format string (", %s" vs "%s\n")
      * The input and output
@@ -163,13 +140,78 @@ let syntax_check file =
      * maker: input, output, format string, unit vs buffered make
      * output_handler: function taking in 'a Batteries.IO.output, and handling it
      *)
-  let input, output as io = IO.(lift (unit_make
-                                               ~fmt:", %s"
-                                               (*~input:(Batteries.IO.input_string command)*)
-                                               (*~output:out_buf))*)
-                                               ~input:Batteries.IO.stdin
-                                               ~output:Batteries.IO.stdout))
+  let out_buf = Batteries.IO.output_string () in
+  let file, maker, handler = match file with
+    (* Syntax check the given file *)
+    | Some(file) ->
+      let quote_quotes s =
+        Str.global_replace (Str.regexp "\"") "\\\"" s
+      in
+      (* Read the file *)
+      let f_handle = Batteries.File.open_in file in
+      let f_contents = Batteries.IO.read_all f_handle in
+      Batteries.IO.close_in f_handle;
+
+      (* Setup a buffer to write to, and script the protocol *)
+      Batteries.IO.nwrite out_buf "[{}";
+      let command = [
+        (* Specify a particular protocol version *)
+        "[\"protocol\", \"version\", 3]";
+        (* "Checkout" the file, loading any .merlins required *)
+        "[\"checkout\", \"auto\", \"" ^ (quote_quotes file) ^ "\"]";
+        (* Load the file contents *)
+        "[\"tell\", \"start\", \"end\", \"" ^ (quote_quotes f_contents) ^ "\"]";
+        (* Query for any errors *)
+        "[\"errors\"]";
+      ] |> Batteries.List.fold_left (fun cur next ->
+          cur ^ next ^ "\n"
+        ) "" in
+      file, (IO.buffered_make ~fmt:", %s"
+               ~input:(Batteries.IO.input_string command)
+               ~output:out_buf), (fun out_buf ->
+          (* Take the original output buffer, read the contents and format the last *)
+          (* printed JSON object, because that's the errors. Format the output. *)
+          Batteries.IO.write out_buf ']';
+          let formatted_output = Batteries.IO.output_string () in
+          let output_string = Batteries.IO.close_out out_buf in
+          let js_array = Json.from_string output_string in
+          match js_array with
+          | `List l -> (match List.last l with
+              | None -> raise Unexpected_output
+              | Some(obj) ->
+                let member = Json.Util.member in
+                let errors = (member "value" obj) |> Json.Util.to_list in
+                List.iter ~f:(fun e ->
+                    let line = member "start" e |> member "line" |> Json.to_string in
+                    let col = member "start" e |> member "col" |> Json.to_string in
+                    let msg = member "message" e |> Json.to_string in
+                    let len = String.length msg in
+                    let clean_msg = String.sub msg 1 (len - 2) |> (* Remove quotes *)
+                                    Str.global_replace (Str.regexp "\\\\n") "." |>
+                                    Str.global_replace (Str.regexp "[ \t]+") " " in
+                    let output str =
+                      Batteries.IO.nwrite formatted_output str; ()
+                    in
+                    let field_sep = ":" in
+                    output file;
+                    output field_sep;
+                    output line;
+                    output field_sep;
+                    output col;
+                    output field_sep;
+                    output clean_msg;
+                    output "\n";
+                  ) errors;
+                Batteries.IO.nwrite Batteries.IO.stdout (Batteries.IO.close_out formatted_output)
+            )
+          | _ -> raise Unexpected_output
+        )
+    (* Run the interactive main loop *)
+    | None -> "", (IO.unit_make ~fmt:"%s\n"
+                     ~input:Batteries.IO.stdin
+                     ~output:Batteries.IO.stdout), (fun out -> ())
   in
+  let input, output as io = IO.lift maker in
   try
     while true do
       let notifications = ref [] in
@@ -187,43 +229,7 @@ let syntax_check file =
       try output ~notifications answer
        with exn -> output ~notifications (Protocol.Exception exn);
     done
-  with Stream.Failure ->
-    (* Take the original output buffer, read the contents and format the last *)
-    (* printed JSON object, because that's the errors. Format the output. *)
-    Batteries.IO.write out_buf ']';
-    let formatted_output = Batteries.IO.output_string () in
-    let output_string = Batteries.IO.close_out out_buf in
-    let js_array = Json.from_string output_string in
-    match js_array with
-    | `List l -> (match List.last l with
-        | None -> raise Unexpected_output
-        | Some(obj) ->
-          let member = Json.Util.member in
-          let errors = (member "value" obj) |> Json.Util.to_list in
-          List.iter ~f:(fun e ->
-              let line = member "start" e |> member "line" |> Json.to_string in
-              let col = member "start" e |> member "col" |> Json.to_string in
-              let msg = member "message" e |> Json.to_string in
-              let len = String.length msg in
-              let clean_msg = String.sub msg 1 (len - 2) |> (* Remove quotes *)
-                              Str.global_replace (Str.regexp "\\\\n") "." |>
-                              Str.global_replace (Str.regexp "[ \t]+") " " in
-              let output str =
-                Batteries.IO.nwrite formatted_output str; ()
-              in
-              let field_sep = ":" in
-              output file;
-              output field_sep;
-              output line;
-              output field_sep;
-              output col;
-              output field_sep;
-              output clean_msg;
-              output "\n";
-            ) errors;
-          Batteries.IO.nwrite Batteries.IO.stdout (Batteries.IO.close_out formatted_output)
-      )
-    | _ -> raise Unexpected_output
+  with Stream.Failure -> handler out_buf; ()
 
 let () =
   (* Setup signals, unix is a disaster *)
@@ -242,9 +248,7 @@ let () =
   (* Run! *)
   (* If given a file to syntax check, then check it.  Otherwise run *)
   (* interactively. *)
-  match Main_args.syntax_check with
-  | None -> main_loop ();
-  | Some(file) -> syntax_check file;
+  syntax_check Main_args.syntax_check;
 
   Sturgeon_stub.stop monitor;
   ()
