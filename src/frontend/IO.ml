@@ -107,6 +107,7 @@ let json_memory_make ~fmt ~input ~output =
   let output json =
     let str = Std.Json.to_string json in
     Printf.sprintf (fmt) str |> Batteries.IO.nwrite output_buf;
+    Batteries.IO.flush output_buf;
   in
   input, output
 

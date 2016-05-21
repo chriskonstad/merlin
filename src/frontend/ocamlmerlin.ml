@@ -152,12 +152,23 @@ let syntax_check file =
   ] |> Batteries.List.fold_left (fun cur next ->
       cur ^ next ^ "\n"
     ) "" in
-  let input, output as io = IO.(lift (buffered_make
+  (* TODO: What varies between buffered and stdin/stdout?
+     * The format string (", %s" vs "%s\n")
+     * The input and output
+     * `unit_make` vs `buffered_make`
+     * How the output is handled at the end
+     * How the output is prepared (e.g. prepending the '[')
+
+     VARIABLES
+     * maker: input, output, format string, unit vs buffered make
+     * output_handler: function taking in 'a Batteries.IO.output, and handling it
+     *)
+  let input, output as io = IO.(lift (unit_make
                                                ~fmt:", %s"
-                                               ~input:(Batteries.IO.input_string command)
-                                               ~output:out_buf))
-                                               (*~input:Batteries.IO.stdin*)
-                                               (*~output:Batteries.IO.stdout))*)
+                                               (*~input:(Batteries.IO.input_string command)*)
+                                               (*~output:out_buf))*)
+                                               ~input:Batteries.IO.stdin
+                                               ~output:Batteries.IO.stdout))
   in
   try
     while true do
