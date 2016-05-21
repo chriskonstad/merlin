@@ -140,7 +140,6 @@ let syntax_check file =
      * maker: input, output, format string, unit vs buffered make
      * output_handler: function taking in 'a Batteries.IO.output, and handling it
      *)
-  let out_buf = Batteries.IO.output_string () in
   let file, maker, handler = match file with
     (* Syntax check the given file *)
     | Some(file) ->
@@ -153,6 +152,7 @@ let syntax_check file =
       Batteries.IO.close_in f_handle;
 
       (* Setup a buffer to write to, and script the protocol *)
+      let out_buf = Batteries.IO.output_string () in
       Batteries.IO.nwrite out_buf "[{}";
       let command = [
         (* Specify a particular protocol version *)
@@ -168,7 +168,7 @@ let syntax_check file =
         ) "" in
       file, (IO.buffered_make ~fmt:", %s"
                ~input:(Batteries.IO.input_string command)
-               ~output:out_buf), (fun out_buf ->
+               ~output:out_buf), (fun () ->
           (* Take the original output buffer, read the contents and format the last *)
           (* printed JSON object, because that's the errors. Format the output. *)
           Batteries.IO.write out_buf ']';
@@ -209,7 +209,7 @@ let syntax_check file =
     (* Run the interactive main loop *)
     | None -> "", (IO.unit_make ~fmt:"%s\n"
                      ~input:Batteries.IO.stdin
-                     ~output:Batteries.IO.stdout), (fun out -> ())
+                     ~output:Batteries.IO.stdout), (fun () -> ())
   in
   let input, output as io = IO.lift maker in
   try
@@ -229,7 +229,7 @@ let syntax_check file =
       try output ~notifications answer
        with exn -> output ~notifications (Protocol.Exception exn);
     done
-  with Stream.Failure -> handler out_buf; ()
+  with Stream.Failure -> handler (); ()
 
 let () =
   (* Setup signals, unix is a disaster *)
