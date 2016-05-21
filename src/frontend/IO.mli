@@ -47,7 +47,9 @@ type io_maker =
 (* Generate an in-memory maker, which is a maker that can operate without
    a file *)
 type 'a memory_maker =
-  input:Batteries.IO.input -> output:'a Batteries.IO.output ->
+  fmt:(string -> string, unit, string) format ->
+  input:Batteries.IO.input ->
+  output:'a Batteries.IO.output ->
   low_io
 
 (* Initialize protocol codec from a input and an output channel *)
