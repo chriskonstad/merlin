@@ -188,6 +188,7 @@ let syntax_check file =
           let errors = (member "value" obj) |> Json.Util.to_list in
           List.iter ~f:(fun e ->
               let line = member "start" e |> member "line" |> Json.to_string in
+              let col = member "start" e |> member "col" |> Json.to_string in
               let msg = member "message" e |> Json.to_string in
               let len = String.length msg in
               let clean_msg = String.sub msg 1 (len - 2) |> (* Remove quotes *)
@@ -200,6 +201,8 @@ let syntax_check file =
               output file;
               output field_sep;
               output line;
+              output field_sep;
+              output col;
               output field_sep;
               output clean_msg;
               output "\n";
