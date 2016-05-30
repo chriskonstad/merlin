@@ -95,8 +95,8 @@ let json_memory_make ~fmt ~input ~output =
         if '\n' = c then
           i := len
       with
-      | Batteries.IO.No_more_input -> print_endline "not enough input"; i := len; ()
-      | Batteries.IO.Input_closed -> print_endline "input closed"; i := len; ()
+      | Batteries.IO.No_more_input -> i := len; ()
+      | Batteries.IO.Input_closed -> i := len; ()
       );
     done;
     !num
