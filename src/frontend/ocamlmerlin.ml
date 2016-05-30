@@ -90,45 +90,26 @@ let signal sg behavior =
   try ignore (Sys.signal sg behavior)
   with Invalid_argument _ (*Sys.signal: unavailable signal*) -> ()
 
-(*let rec on_read ~timeout fd =*)
-(*  try match Unix.select [fd] [] [] timeout with*)
-(*    | [], [], [] ->*)
-(*      if Command.dispatch IO.default_context Protocol.(Query Idle_job) then*)
-(*        on_read ~timeout:0.0 fd*)
-(*      else*)
-(*        on_read ~timeout:(-1.0) fd*)
-(*    | _, _, _ -> ()*)
-(*  with*)
-(*  | Unix.Unix_error (Unix.EINTR, _, _) ->*)
-(*    on_read ~timeout fd*)
-(*  | exn -> Logger.log "main" "on_read" (Printexc.to_string exn)*)
-
-(*let main_loop () =*)
-(*  let input, output as io = IO.(lift (make ~on_read:(on_read ~timeout:0.050)*)
-(*                                        ~input:Unix.stdin ~output:Unix.stdout))*)
-(*    in*)
-(*  try*)
-(*    while true do*)
-(*      let notifications = ref [] in*)
-(*      let answer =*)
-(*        Logger.with_editor notifications @@ fun () ->*)
-(*        try match Stream.next input with*)
-(*          | Protocol.Request (context, request) ->*)
-(*            Protocol.Return*)
-(*              (request, Command.dispatch context request)*)
-(*        with*)
-(*        | Stream.Failure as exn -> raise exn*)
-(*        | exn -> Protocol.Exception exn*)
-(*      in*)
-(*      let notifications = List.rev !notifications in*)
-(*      try output ~notifications answer*)
-(*       with exn -> output ~notifications (Protocol.Exception exn);*)
-(*    done*)
-(*  with Stream.Failure -> ()*)
+let rec on_read ~timeout fd =
+  try match Unix.select [fd] [] [] timeout with
+    | [], [], [] ->
+      if Command.dispatch IO.default_context Protocol.(Query Idle_job) then
+        on_read ~timeout:0.0 fd
+      else
+        on_read ~timeout:(-1.0) fd
+    | _, _, _ -> ()
+  with
+  | Unix.Unix_error (Unix.EINTR, _, _) ->
+    on_read ~timeout fd
+  | exn -> Logger.log "main" "on_read" (Printexc.to_string exn)
 
 (* Syntax check the file at the given file path *)
-let syntax_check file =
-  let maker, handler = Scripts.syntax_checker file in
+let main_loop file =
+  let maker, handler = match file with
+    | Some(file) -> Scripts.syntax_checker file
+    | None -> IO.(make ~on_read:(on_read ~timeout:0.050)
+                    ~input:Unix.stdin ~output:Unix.stdout), (fun () -> ())
+  in
   let input, output as io = IO.lift maker in
   try
     while true do
@@ -166,7 +147,7 @@ let () =
   (* Run! *)
   (* If given a file to syntax check, then check it.  Otherwise run *)
   (* interactively. *)
-  syntax_check Main_args.syntax_check;
+  main_loop Main_args.syntax_check;
 
   Sturgeon_stub.stop monitor;
   ()
