@@ -237,6 +237,7 @@ SOURCES = \
 	src/frontend/IO_sexp.ml           \
 	src/frontend/command.mli          \
 	src/frontend/command.ml           \
+	src/frontend/scripts.ml           \
 	src/frontend/ocamlmerlin.ml
 
 PACKS = str batteries findlib yojson unix $(MERLIN_STURGEON_PACKAGE)
