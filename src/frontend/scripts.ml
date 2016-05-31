@@ -24,7 +24,6 @@ let syntax_checker file : script_handle =
 
   (* Setup a buffer to write to, and script the protocol *)
   let out_buf = Batteries.IO.output_string () in
-  Batteries.IO.nwrite out_buf "[{}";
   let command = [
     (* Specify a particular protocol version *)
     "[\"protocol\", \"version\", 3]";
@@ -37,17 +36,19 @@ let syntax_checker file : script_handle =
   ] |> Batteries.List.fold_left (fun cur next ->
       cur ^ next ^ "\n"
     ) "" in
-  let maker = (IO.buffered_make ~fmt:", %s"
+  let maker = (IO.buffered_make ~fmt:"%s,"
                  ~input:(Batteries.IO.input_string command)
                  ~output:out_buf)
   in
   let handler = (fun () ->
       (* Take the original output buffer, read the contents and format the last *)
       (* printed JSON object, because that's the errors. Format the output. *)
-      Batteries.IO.write out_buf ']';
-      let formatted_output = Batteries.IO.output_string () in
-      let output_string = Batteries.IO.close_out out_buf in
+      let raw_output = Batteries.IO.close_out out_buf in
+      let new_length = (String.length raw_output) - 1 in
+      let output_without_last_comma = String.sub raw_output 0 new_length in
+      let output_string = "[" ^ output_without_last_comma ^ "]" in
       let js_array = Json.from_string output_string in
+      let formatted_output = Batteries.IO.output_string () in
       match js_array with
       | `List l -> (match List.last l with
           | None -> raise Unexpected_output
