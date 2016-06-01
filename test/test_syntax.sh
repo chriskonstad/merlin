@@ -3,7 +3,7 @@
 set -u
 set -e
 
-CMD='./ocamlmerlin -syntax-check'
+CMD='../ocamlmerlin -syntax-check'
 
 # Records whether or not a test has failed
 TEST_FAILED=0

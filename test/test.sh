@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+MERLIN="../ocamlmerlin"
+TEST_DIR="tests_interactive"
+
 if [ "$1" = "--update" ]; then
   UPDATE=1
   shift 1
@@ -19,24 +22,24 @@ if test -n "$1" ; then
 
     out=`mktemp`
     while test -n "$1"; do
-      (cd tests && bash $1.in) | ./ocamlmerlin > $out
-      if [ -r ./tests/$1.out ]; then
-        $DIFF ./tests/$1.out $out
+      (cd "$TEST_DIR" && bash $1.in) | "$MERLIN" > $out
+      if [ -r ./"$TEST_DIR"/$1.out ]; then
+        $DIFF ./"$TEST_DIR"/$1.out $out
       else
         less $out
       fi
       if [ "$UPDATE" = 1 ]; then
-        cp $out ./tests/$1.out
+        cp $out ./"$TEST_DIR"/$1.out
       fi
       shift 1
     done
     rm $out
 else
-    for file in tests/*.in; do
+    for file in "$TEST_DIR"/*.in; do
         test_nb=`basename $file .in`
         temp_out=`mktemp`
         real_out=`echo "$file"|sed 's/\.in$/.out/'`
-        (cd tests && bash $test_nb.in) | ./ocamlmerlin > $temp_out
+        (cd "$TEST_DIR" && bash $test_nb.in) | "$MERLIN" > $temp_out
         if [ "$UPDATE" = 1 ]; then
             echo "############## $test_nb ##############"
             diff $temp_out $real_out

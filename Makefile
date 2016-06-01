@@ -81,8 +81,8 @@ clean:
 	+$(OCAMLMAKEFILE) clean
 
 check: $(TARGET)
-	./test.sh
-	./test_syntax.sh
+	cd test && ./test.sh
+	cd test && ./test_syntax.sh
 
 distclean: clean
 	@echo
