@@ -82,6 +82,7 @@ clean:
 
 check: $(TARGET)
 	./test.sh
+	./test_syntax.sh
 
 distclean: clean
 	@echo
