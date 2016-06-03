@@ -14,7 +14,10 @@ type script_handle = IO.low_io * (unit -> unit)
 let syntax_checker file : script_handle =
   (* Syntax check the given file *)
   let quote_quotes s =
-    Str.global_replace (Str.regexp "\"") "\\\"" s
+    (* Escape the backslashes *)
+    let escaped = Str.global_replace (Str.regexp "\\") "\\\\\\\\" s in
+    (* Escape the quotes *)
+    Str.global_replace (Str.regexp "\"") "\\\"" escaped
   in
 
   (* Read the file *)
