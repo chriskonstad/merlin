@@ -111,14 +111,14 @@ let json_memory_make ~fmt ~input ~output =
   in
   input, output
 
-let makers = ref ["json", ("(default) simple JSON-based protocol", json_make)]
+let makers = ref ["json", ("(default) simple JSON-based protocol", json_memory_make)]
 
 let register_protocol ~name ~desc inst =
   makers := (name, (desc,inst)) :: !makers
 
-let make' = ref json_make
-let make ~on_read ~input ~output =
-  json_log (!make' ~on_read ~input ~output)
+(*let make' = ref json_make*)
+(*let make ~on_read ~input ~output =*)
+(*  json_log (!make' ~on_read ~input ~output)*)
 
 let buffered_make' = ref json_memory_make
 let buffered_make ~fmt ~input ~output =
@@ -127,6 +127,10 @@ let buffered_make ~fmt ~input ~output =
 let unit_make' = ref json_memory_make
 let unit_make ~fmt ~input ~output =
   json_log (!unit_make' ~fmt ~input ~output)
+
+let make' = ref json_memory_make
+let make ~fmt ~input ~output =
+  json_log(!make' ~fmt ~input ~output)
 
 let select_frontend name =
   try make' := snd (List.assoc name !makers)

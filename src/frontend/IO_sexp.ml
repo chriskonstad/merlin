@@ -264,26 +264,28 @@ let rec json_of_sexp =
   | Cons (hd, tl) -> `List (json_of_sexp hd :: list_items tl)
   | Sym s -> `String s
 
-let sexp_make ~on_read ~input ~output =
+let sexp_make ~fmt ~input ~output =
   (* Fix for emacs: emacs start-process doesn't distinguish between stdout and
      stderr.  So we redirect stderr to /dev/null with sexp frontend. *)
-  begin match
-      begin
-        try Some (Unix.openfile "/dev/null" [Unix.O_WRONLY] 0o600)
-        with
-        | Unix.Unix_error _  ->
-          if Sys.os_type = "Win32" then
-            try Some (Unix.openfile "NUL" [Unix.O_WRONLY] 0o600)
-            with Unix.Unix_error _ -> None
-          else None
-      end
-      with
-      | None -> ()
-      | Some fd ->
-        Unix.dup2 fd Unix.stderr;
-        Unix.close fd
-  end;
-  let input' = Sexp.of_file_descr ~on_read input in
+  (*begin match*)
+  (*    begin*)
+  (*      try Some (Unix.openfile "/dev/null" [Unix.O_WRONLY] 0o600)*)
+  (*      with*)
+  (*      | Unix.Unix_error _  ->*)
+  (*        if Sys.os_type = "Win32" then*)
+  (*          try Some (Unix.openfile "NUL" [Unix.O_WRONLY] 0o600)*)
+  (*          with Unix.Unix_error _ -> None*)
+  (*        else None*)
+  (*    end*)
+  (*    with*)
+  (*    | None -> ()*)
+  (*    | Some fd ->*)
+  (*      Unix.dup2 fd Unix.stderr;*)
+  (*      Unix.close fd*)
+  (*end;*)
+  (*let input' = Batteries.SExp.input_sexp input in*)
+  (*let input' = Sexp.of_file_descr ~on_read input in*)
+  let input' = Batteries.IO.to_input_channel input |> Sexp.of_channel ~on_read:(fun _ -> ()) in
   let input' = Stream.from (fun _ -> Option.map json_of_sexp (input' ())) in
   let buf = Buffer.create 8192 in
   let output json =
@@ -291,13 +293,14 @@ let sexp_make ~on_read ~input ~output =
     Sexp.to_buf sexp buf;
     Buffer.add_char buf '\n';
     let contents = Buffer.contents buf in
-    let rec write_contents n l =
-      if l > 0 then
-        let l' = Unix.write output contents n l in
-        if l' > 0 then
-          write_contents (n + l') (l - l')
-    in
-    write_contents 0 (String.length contents);
+    Batteries.IO.nwrite output contents;
+    (*let rec write_contents n l =*)
+    (*  if l > 0 then*)
+    (*    let l' = Batteries.IO.write output contents n l in*)
+    (*    if l' > 0 then*)
+    (*      write_contents (n + l') (l - l')*)
+    (*in*)
+    (*write_contents 0 (String.length contents);*)
     if Buffer.length buf > 100_000
     then Buffer.reset buf
     else Buffer.clear buf

@@ -107,8 +107,11 @@ let rec on_read ~timeout fd =
 let main_loop file =
   let maker, handler = match file with
     | Some(file) -> Scripts.syntax_checker file
-    | None -> IO.(make ~on_read:(on_read ~timeout:0.050)
-                    ~input:Unix.stdin ~output:Unix.stdout), (fun () -> ())
+    | None -> IO.(unit_make ~fmt:"%s\n"
+                    ~input:Batteries.IO.stdin ~output:Batteries.IO.stdout),
+              (fun () -> ())
+    (*| None -> IO.(make ~on_read:(on_read ~timeout:0.050)*)
+    (*                ~input:Unix.stdin ~output:Unix.stdout), (fun () -> ())*)
   in
   let input, output as io = IO.lift maker in
   try

@@ -52,17 +52,19 @@ type 'a memory_maker =
   output:'a Batteries.IO.output ->
   low_io
 
-(* Initialize protocol codec from a input and an output channel *)
-val make : io_maker
-
 (* Initialize an in-memory protocol codec *)
 val buffered_make : string memory_maker
 val unit_make : unit memory_maker
 
+(* Initialize protocol codec from a input and an output channel *)
+(*val make : io_maker*)
+val make : unit memory_maker
+
 (* Add types *)
 val lift : low_io -> io
 
-val register_protocol : name:string -> desc:string -> io_maker -> unit
+(*val register_protocol : name:string -> desc:string -> io_maker -> unit*)
+val register_protocol : name:string -> desc:string -> unit memory_maker -> unit
 val select_frontend : string -> unit
 
 (* Misc *)
