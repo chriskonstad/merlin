@@ -35,10 +35,7 @@ let current_version = ref `V2
 type io = Protocol.request Stream.t *
   (notifications:(Logger.section * string) list -> Protocol.response -> unit)
 type low_io = Json.json Stream.t * (Json.json -> unit)
-type io_maker =
-  on_read:(Unix.file_descr -> unit) -> input:Unix.file_descr ->
-  output:Unix.file_descr ->
-  low_io
+
 type 'a memory_maker =
   fmt:(string -> string, unit, string) format ->
   input:Batteries.IO.input ->
@@ -63,24 +60,6 @@ let json_log (input,output) =
   let input' = Stream.map ~f:log_input input in
   let output' json = output (log_output json) in
   input', output'
-
-let json_make ~on_read ~input ~output =
-  let rec read buf len =
-    on_read input;
-    try Unix.read input buf 0 len
-    with Unix.Unix_error (Unix.EINTR,_,_) ->
-      read buf len
-  in
-  let lexbuf = Lexing.from_function read in
-  let input = Json.stream_from_lexbuf (Json.init_lexer ()) lexbuf in
-  let output = Unix.out_channel_of_descr output in
-  let output' = Json.to_channel output in
-  let output json =
-    output' json;
-    output_char output '\n';
-    flush output
-  in
-  input, output
 
 let json_memory_make ~fmt ~input ~output =
   let rec read buf len =
@@ -115,10 +94,6 @@ let makers = ref ["json", ("(default) simple JSON-based protocol", json_memory_m
 
 let register_protocol ~name ~desc inst =
   makers := (name, (desc,inst)) :: !makers
-
-(*let make' = ref json_make*)
-(*let make ~on_read ~input ~output =*)
-(*  json_log (!make' ~on_read ~input ~output)*)
 
 let buffered_make' = ref json_memory_make
 let buffered_make ~fmt ~input ~output =

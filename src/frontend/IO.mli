@@ -38,12 +38,6 @@ type low_io = Json.json Stream.t * (Json.json -> unit)
 type io = Protocol.request Stream.t *
   (notifications:(Logger.section * string) list -> Protocol.response -> unit)
 
-(* Select between different serialization protocols *)
-type io_maker =
-  on_read:(Unix.file_descr -> unit) -> input:Unix.file_descr ->
-  output:Unix.file_descr ->
-  low_io
-
 (* Generate an in-memory maker, which is a maker that can operate without
    a file *)
 type 'a memory_maker =
@@ -57,13 +51,11 @@ val buffered_make : string memory_maker
 val unit_make : unit memory_maker
 
 (* Initialize protocol codec from a input and an output channel *)
-(*val make : io_maker*)
 val make : unit memory_maker
 
 (* Add types *)
 val lift : low_io -> io
 
-(*val register_protocol : name:string -> desc:string -> io_maker -> unit*)
 val register_protocol : name:string -> desc:string -> unit memory_maker -> unit
 val select_frontend : string -> unit
 
