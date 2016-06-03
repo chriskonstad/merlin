@@ -90,19 +90,6 @@ let signal sg behavior =
   try ignore (Sys.signal sg behavior)
   with Invalid_argument _ (*Sys.signal: unavailable signal*) -> ()
 
-let rec on_read ~timeout fd =
-  try match Unix.select [fd] [] [] timeout with
-    | [], [], [] ->
-      if Command.dispatch IO.default_context Protocol.(Query Idle_job) then
-        on_read ~timeout:0.0 fd
-      else
-        on_read ~timeout:(-1.0) fd
-    | _, _, _ -> ()
-  with
-  | Unix.Unix_error (Unix.EINTR, _, _) ->
-    on_read ~timeout fd
-  | exn -> Logger.log "main" "on_read" (Printexc.to_string exn)
-
 (* Syntax check the file at the given file path *)
 let main_loop file =
   let maker, handler = match file with
@@ -110,8 +97,6 @@ let main_loop file =
     | None -> IO.(unit_make ~fmt:"%s\n"
                     ~input:Batteries.IO.stdin ~output:Batteries.IO.stdout),
               (fun () -> ())
-    (*| None -> IO.(make ~on_read:(on_read ~timeout:0.050)*)
-    (*                ~input:Unix.stdin ~output:Unix.stdout), (fun () -> ())*)
   in
   let input, output as io = IO.lift maker in
   try
