@@ -267,7 +267,49 @@ let rec json_of_sexp =
 let sexp_make ~fmt ~input ~output =
   (* Fix for emacs: emacs start-process doesn't distinguish between stdout and
      stderr.  So we redirect stderr to /dev/null with sexp frontend. *)
-  let input' = Batteries.IO.to_input_channel input |> Sexp.of_channel ~on_read:(fun _ -> ()) in
+  let rec read buf len =
+    let num = ref 0 in
+    let i = ref 0 in
+    while !i < len do
+      (try
+        let c = Batteries.IO.read input in
+        Bytes.set buf !i c;
+        num := !num + 1;
+        i := !i + 1;
+        if '\n' = c then
+          i := len
+      with
+      | Batteries.IO.No_more_input -> i := len; ()
+      | Batteries.IO.Input_closed -> i := len; ()
+      );
+    done;
+    !num
+  in
+  let get_line () =
+    let size = 10000 in
+    let buf = Bytes.create size in
+    Bytes.fill buf 0 size '\x00';
+    let num = read buf size in
+    if 0 = num then
+      None
+    else
+      Some(Bytes.to_string buf)
+  in
+  let rec get_sexp init () =
+    let line = get_line () in
+    match line with
+    | None -> None
+    | Some(l) -> (
+        let combined = init ^ l in
+        try
+          let s = Sexp.of_string combined in
+          Some(s)
+        with
+        | _ -> get_sexp combined ()
+      )
+  in
+  let get_another_sexp = get_sexp "" in
+  let input' = get_another_sexp in
   let input' = Stream.from (fun _ -> Option.map json_of_sexp (input' ())) in
   let buf = Buffer.create 8192 in
   let output json =
@@ -275,6 +317,7 @@ let sexp_make ~fmt ~input ~output =
     Sexp.to_buf sexp buf;
     let contents = Buffer.contents buf in
     Printf.sprintf (fmt) contents |> Batteries.IO.nwrite output;
+    Batteries.IO.flush output;
     if Buffer.length buf > 100_000
     then Buffer.reset buf
     else Buffer.clear buf

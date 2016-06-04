@@ -240,7 +240,7 @@ SOURCES = \
 	src/frontend/scripts.ml           \
 	src/frontend/ocamlmerlin.ml
 
-PACKS = str batteries findlib yojson unix $(MERLIN_STURGEON_PACKAGE)
+PACKS = str batteries core findlib yojson unix $(MERLIN_STURGEON_PACKAGE)
 
 ifeq "$(NATIVE)" "false"
 ocamlmerlin $(RESULT): byte-code

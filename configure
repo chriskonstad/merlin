@@ -123,6 +123,7 @@ END
 check_package EXIT findlib "Install findlib"
 check_package EXIT yojson "Install yojson"
 check_package EXIT batteries "Install batteries"
+check_package EXIT core "Install core"
 MAGIC_VERSION=$(ocamlfind c -config | grep cmi_magic_number | cut -d' ' -f2)
 FULL_VERSION=$(ocamlfind c -version)
 

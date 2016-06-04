@@ -94,7 +94,7 @@ let signal sg behavior =
 let main_loop file =
   let maker, handler = match file with
     | Some(file) -> Scripts.syntax_checker file
-    | None -> IO.(unit_make ~fmt:"%s\n"
+    | None -> IO.(make ~fmt:"%s\n"
                     ~input:Batteries.IO.stdin ~output:Batteries.IO.stdout),
               (fun () -> ())
   in
