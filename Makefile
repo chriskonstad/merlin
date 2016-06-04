@@ -83,6 +83,7 @@ clean:
 check: $(TARGET)
 	cd test && ./test.sh
 	cd test && ./test_syntax.sh
+	cd test && ./test_interface.sh
 
 distclean: clean
 	@echo
